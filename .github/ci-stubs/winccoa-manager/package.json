@@ -1,0 +1,6 @@
+{
+  "name": "winccoa-manager",
+  "version": "0.0.0",
+  "description": "CI stub — replaces the local native add-on so npm install succeeds in CI",
+  "main": "index.js"
+}

@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  typecheck:
+    name: Type-check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Point winccoa-manager to CI stub
+        # The real package is a local native add-on not available outside WinCC OA.
+        # Types are provided by src/types/winccoa-manager.d.ts; the stub satisfies npm.
+        run: npm pkg set "dependencies.winccoa-manager=file:./.github/ci-stubs/winccoa-manager"
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Type-check
+        run: npm run typecheck
+
+  unit-tests:
+    name: Unit Tests (Node ${{ matrix.node-version }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node-version: ["18", "20", "22"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Point winccoa-manager to CI stub
+        run: npm pkg set "dependencies.winccoa-manager=file:./.github/ci-stubs/winccoa-manager"
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run unit tests with coverage
+        if: matrix.node-version == '18'
+        run: npm run test:coverage
+
+      - name: Run unit tests
+        if: matrix.node-version != '18'
+        run: npm test
+
+      - name: Upload coverage report
+        if: matrix.node-version == '18'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+  build:
+    name: Build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Point winccoa-manager to CI stub
+        run: npm pkg set "dependencies.winccoa-manager=file:./.github/ci-stubs/winccoa-manager"
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Create .env placeholder
+        # .env is gitignored but the build script copies it to dist for convenience.
+        run: New-Item -ItemType File -Path .env -Force
+        shell: pwsh
+
+      - name: Build bundle
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
