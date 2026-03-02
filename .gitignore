@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.claude/
+-help
+plan-closeProjectGaps.md
+FEATURE_PLAN.md
