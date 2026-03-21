@@ -60,6 +60,12 @@ import { registerOpcUaBrowse } from "./opcua/opcua-browse.js";
 import { registerAsciiExport } from "./ascii/ascii-export.js";
 import { registerAsciiImport } from "./ascii/ascii-import.js";
 import { registerScriptExecute } from "./script/script-execute.js";
+import { registerAddressConfigSet } from "./address/address-config-set.js";
+import { registerAddressConfigDelete } from "./address/address-config-delete.js";
+import { registerDistribConfigSet } from "./distrib/distrib-config-set.js";
+import { registerDistribConfigDelete } from "./distrib/distrib-config-delete.js";
+import { registerSmoothConfigSet } from "./smooth/smooth-config-set.js";
+import { registerSmoothConfigDelete } from "./smooth/smooth-config-delete.js";
 
 // ---------------------------------------------------------------------------
 // Category → tool-name mapping (tool name = the string passed to registerTool)
@@ -132,6 +138,18 @@ const CATEGORIES: Record<string, string[]> = {
   ],
   script: [
     "script.script_execute",
+  ],
+  address: [
+    "address.address_config_set",
+    "address.address_config_delete",
+  ],
+  distrib: [
+    "distrib.distrib_config_set",
+    "distrib.distrib_config_delete",
+  ],
+  smooth: [
+    "smooth.smooth_config_set",
+    "smooth.smooth_config_delete",
   ],
 };
 
@@ -262,6 +280,18 @@ export function registerAllTools(server: McpServer): void {
 
   // ── CTRL Script Execution ────────────────────────────────
   reg("script.script_execute", registerScriptExecute);
+
+  // ── Address configuration ──────────────────────────────
+  reg("address.address_config_set", registerAddressConfigSet);
+  reg("address.address_config_delete", registerAddressConfigDelete);
+
+  // ── Distribution configuration ────────────────────────
+  reg("distrib.distrib_config_set", registerDistribConfigSet);
+  reg("distrib.distrib_config_delete", registerDistribConfigDelete);
+
+  // ── Smoothing configuration ─────────────────────────
+  reg("smooth.smooth_config_set", registerSmoothConfigSet);
+  reg("smooth.smooth_config_delete", registerSmoothConfigDelete);
 
   if (ENABLED_TOOLS !== null) {
     console.error(`[tools] Loaded ${loaded.length} tools. Skipped ${skipped.length} (filter: TOOLS=${ENABLED_TOOLS.join(",")})`);
