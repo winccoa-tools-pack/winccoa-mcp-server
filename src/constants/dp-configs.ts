@@ -31,3 +31,9 @@ export const DPCONFIG_DISTRIB = 56;
 export const DPCONFIG_SMOOTH_STANDARD = 48;
 export const DPCONFIG_SMOOTH_DERIVATIVE = 49;
 export const DPCONFIG_SMOOTH_FLUTTER = 50;
+
+/** _dp_fct config type constant (datapoint function). */
+export const DPCONFIG_DP_FUNCTION = 60;
+
+/** _dp_fct config type constant (statistical function). */
+export const DPCONFIG_STAT_FUNCTION = 63;

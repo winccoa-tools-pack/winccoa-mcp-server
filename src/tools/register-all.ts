@@ -66,6 +66,8 @@ import { registerDistribConfigSet } from "./distrib/distrib-config-set.js";
 import { registerDistribConfigDelete } from "./distrib/distrib-config-delete.js";
 import { registerSmoothConfigSet } from "./smooth/smooth-config-set.js";
 import { registerSmoothConfigDelete } from "./smooth/smooth-config-delete.js";
+import { registerDpFctConfigSet } from "./dp-fct/dp-fct-config-set.js";
+import { registerDpFctConfigDelete } from "./dp-fct/dp-fct-config-delete.js";
 
 // ---------------------------------------------------------------------------
 // Category → tool-name mapping (tool name = the string passed to registerTool)
@@ -150,6 +152,10 @@ const CATEGORIES: Record<string, string[]> = {
   smooth: [
     "smooth.smooth_config_set",
     "smooth.smooth_config_delete",
+  ],
+  "dp-fct": [
+    "dp_fct.dp_fct_config_set",
+    "dp_fct.dp_fct_config_delete",
   ],
 };
 
@@ -292,6 +298,10 @@ export function registerAllTools(server: McpServer): void {
   // ── Smoothing configuration ─────────────────────────
   reg("smooth.smooth_config_set", registerSmoothConfigSet);
   reg("smooth.smooth_config_delete", registerSmoothConfigDelete);
+
+  // ── DP Function configuration ───────────────────────────
+  reg("dp_fct.dp_fct_config_set", registerDpFctConfigSet);
+  reg("dp_fct.dp_fct_config_delete", registerDpFctConfigDelete);
 
   if (ENABLED_TOOLS !== null) {
     console.error(`[tools] Loaded ${loaded.length} tools. Skipped ${skipped.length} (filter: TOOLS=${ENABLED_TOOLS.join(",")})`);
