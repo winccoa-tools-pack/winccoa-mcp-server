@@ -23,3 +23,11 @@ export const DPCONFIG_ALERT_NONBINARYSIGNAL = 19;
 
 /** _address config type constant (peripheral address). */
 export const DPCONFIG_ADDRESS = 4;
+
+/** _distrib config type constant. */
+export const DPCONFIG_DISTRIB = 56;
+
+/** _smooth config type constants. */
+export const DPCONFIG_SMOOTH_STANDARD = 48;
+export const DPCONFIG_SMOOTH_DERIVATIVE = 49;
+export const DPCONFIG_SMOOTH_FLUTTER = 50;
