@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getWinccoa } from "../../winccoa-client.js";
 import { handleWinccoaError } from "../../utils/error-handler.js";
-import { safeJsonStringify, textContent, errorContent } from "../../utils/formatters.js";
+import { safeJsonStringify, textContent } from "../../utils/formatters.js";
 import { DPCONFIG_NONE } from "../../constants/dp-configs.js";
 
 export function registerDistribConfigDelete(server: McpServer): void {

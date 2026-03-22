@@ -9,7 +9,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getWinccoa } from "../../winccoa-client.js";
 import { handleWinccoaError } from "../../utils/error-handler.js";
-import { safeJsonStringify, textContent, errorContent } from "../../utils/formatters.js";
+import { safeJsonStringify, textContent } from "../../utils/formatters.js";
 
 export function registerDpSetPeriod(server: McpServer): void {
   server.registerTool(
