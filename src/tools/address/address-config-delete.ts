@@ -1,7 +1,7 @@
 /**
- * Tool: pv_range/pv_range_delete
+ * Tool: address/address_config_delete
  *
- * Disable the process value range (_pv_range) configuration on one or more DPEs
+ * Remove peripheral address configuration from one or more DPEs
  * by setting their config type to DPCONFIG_NONE.
  */
 
@@ -12,34 +12,31 @@ import { handleWinccoaError } from "../../utils/error-handler.js";
 import { safeJsonStringify, textContent } from "../../utils/formatters.js";
 import { DPCONFIG_NONE } from "../../constants/dp-configs.js";
 
-export function registerPvRangeDelete(server: McpServer): void {
+export function registerAddressConfigDelete(server: McpServer): void {
   server.registerTool(
-    "pv_range.pv_range_delete",
+    "address.address_config_delete",
     {
-      title: "Delete PV Range Configuration",
-      description: `Disable the process value range (_pv_range) configuration on one or
-more WinCC OA datapoint elements (DPEs) by setting their config type to DPCONFIG_NONE.
+      title: "Delete Address Configuration",
+      description: `Remove the peripheral address configuration from one or more WinCC OA
+datapoint elements (DPEs) by setting their address config type to DPCONFIG_NONE.
 
 Args:
-  - dpeNames (string[]): DPE names whose PV range config should be disabled.
-    E.g. ["Tank1.level", "Tank2.level"]
+  - dpeNames (string[]): DPE names whose address config should be removed.
+    E.g. ["Tank1.level", "Pump1.speed"]
 
 Returns:
   JSON object mapping each DPE name to a result:
   {
     "Tank1.level": { "success": true },
-    "Tank2.level": { "success": false, "error": "..." }
+    "Pump1.speed": { "success": false, "error": "..." }
   }
 
-  Each DPE is processed individually so a failure on one does not abort the rest.
-
-Notes:
-  - Use pv_range.pv_range_set to re-enable or change PV range configuration.`,
+  Each DPE is processed individually so a failure on one does not abort the rest.`,
       inputSchema: {
         dpeNames: z
           .array(z.string().min(1))
           .min(1, "At least one DPE name is required")
-          .describe("Datapoint element name(s) to disable PV range on"),
+          .describe("Datapoint element name(s) to remove address config from"),
       },
       annotations: {
         readOnlyHint: false,
@@ -55,7 +52,7 @@ Notes:
 
       for (const dpe of dpeNames) {
         try {
-          await winccoa.dpSetWait(`${dpe}:_pv_range.._type`, DPCONFIG_NONE);
+          await winccoa.dpSetWait(`${dpe}:_address.._type`, DPCONFIG_NONE);
           results[dpe] = { success: true };
         } catch (error: unknown) {
           results[dpe] = { success: false, error: handleWinccoaError(error) };

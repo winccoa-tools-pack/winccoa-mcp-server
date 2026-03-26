@@ -1,12 +1,12 @@
 /**
- * Unit tests for manager.manager_restart tool (PMON TCP).
+ * Unit tests for manager.manager_remove tool (PMON TCP).
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { setPmonClientInstance } from "../../pmon/pmon-client-accessor.js";
 import type { PmonClient } from "../../pmon/pmon-client.js";
-import { registerManagerRestart } from "./manager-restart.js";
+import { registerManagerRemove } from "./manager-remove.js";
 
 function buildServer() {
   let capturedHandler: ((args: Record<string, unknown>) => Promise<unknown>) | undefined;
@@ -24,11 +24,10 @@ function buildServer() {
   };
 }
 
-describe("manager.manager_restart", () => {
+describe("manager.manager_remove", () => {
   let mockPmon: { [K in keyof PmonClient]: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    vi.useFakeTimers();
     mockPmon = {
       getManagerList: vi.fn(),
       getManagerStati: vi.fn(),
@@ -46,51 +45,39 @@ describe("manager.manager_restart", () => {
     delete process.env.MCP_MANAGER_NUM;
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("stops, waits, then starts the manager", async () => {
-    mockPmon.stopManager.mockResolvedValue({ success: true, data: "OK" });
-    mockPmon.startManager.mockResolvedValue({ success: true, data: "OK" });
+  it("removes a manager and returns confirmation", async () => {
+    mockPmon.removeManager.mockResolvedValue({ success: true, data: "OK" });
 
     const { fakeServer, invoke } = buildServer();
-    registerManagerRestart(fakeServer);
+    registerManagerRemove(fakeServer);
 
-    const promise = invoke({ managerIndex: 2, waitSeconds: 1 });
-
-    // Advance past the wait
-    await vi.advanceTimersByTimeAsync(1000);
-
-    const result = (await promise) as { content: Array<{ text: string }> };
-    expect(mockPmon.stopManager).toHaveBeenCalledWith(2);
-    expect(mockPmon.startManager).toHaveBeenCalledWith(2);
-    expect(result.content[0]!.text).toContain("restarted successfully");
+    const result = (await invoke({ managerIndex: 4 })) as { content: Array<{ text: string }> };
+    expect(mockPmon.removeManager).toHaveBeenCalledWith(4);
+    expect(result.content[0]!.text).toContain("removed from PMON");
   });
 
-  it("returns error if stop fails", async () => {
-    mockPmon.stopManager.mockResolvedValue({ success: false, error: "Not running" });
+  it("returns error when PMON reports failure", async () => {
+    mockPmon.removeManager.mockResolvedValue({ success: false, error: "Manager still running" });
 
     const { fakeServer, invoke } = buildServer();
-    registerManagerRestart(fakeServer);
+    registerManagerRemove(fakeServer);
 
-    const result = (await invoke({ managerIndex: 2, waitSeconds: 1 })) as { isError?: boolean; content: Array<{ text: string }> };
+    const result = (await invoke({ managerIndex: 4 })) as { isError?: boolean; content: Array<{ text: string }> };
     expect(result.isError).toBe(true);
-    expect(result.content[0]!.text).toContain("Not running");
-    expect(mockPmon.startManager).not.toHaveBeenCalled();
+    expect(result.content[0]!.text).toContain("Manager still running");
   });
 
-  it("prevents self-restart when own manager num matches", async () => {
-    process.env.MCP_MANAGER_NUM = "4";
+  it("prevents self-removal when own manager num matches", async () => {
+    process.env.MCP_MANAGER_NUM = "6";
     vi.resetModules();
 
-    const { registerManagerRestart: reg } = await import("./manager-restart.js");
+    const { registerManagerRemove: reg } = await import("./manager-remove.js");
     const { setPmonClientInstance: setPmon } = await import("../../pmon/pmon-client-accessor.js");
     setPmon(mockPmon as unknown as PmonClient);
 
     mockPmon.getManagerStati.mockResolvedValue({
       managers: [
-        { index: 2, state: 2, pid: 300, startMode: 2, startTime: "", manNum: 4 },
+        { index: 4, state: 2, pid: 400, startMode: 2, startTime: "", manNum: 6 },
       ],
       modeNumeric: 1,
       modeString: "MONITOR",
@@ -101,13 +88,10 @@ describe("manager.manager_restart", () => {
     const { fakeServer, invoke } = buildServer();
     reg(fakeServer);
 
-    const result = (await invoke({ managerIndex: 2, waitSeconds: 1 })) as { isError?: boolean; content: Array<{ text: string }> };
+    const result = (await invoke({ managerIndex: 4 })) as { isError?: boolean; content: Array<{ text: string }> };
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toContain("own manager");
 
     delete process.env.MCP_MANAGER_NUM;
   });
 });
-
-// Need the import for afterEach
-import { afterEach } from "vitest";
