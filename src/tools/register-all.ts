@@ -50,7 +50,11 @@ import { registerManagerStatus } from "./manager/manager-status.js";
 import { registerManagerStart } from "./manager/manager-start.js";
 import { registerManagerStop } from "./manager/manager-stop.js";
 import { registerManagerRestart } from "./manager/manager-restart.js";
+import { registerManagerKill } from "./manager/manager-kill.js";
+import { registerManagerAdd } from "./manager/manager-add.js";
+import { registerManagerRemove } from "./manager/manager-remove.js";
 import { registerManagerPropertiesGet, registerManagerPropertiesSet } from "./manager/manager-properties.js";
+import { registerProjectName } from "./manager/pmon-project-name.js";
 import { registerSystemInfo } from "./manager/system-info.js";
 import { registerOpcUaConnectionList } from "./opcua/opcua-connection-list.js";
 import { registerOpcUaConnectionAdd } from "./opcua/opcua-connection-add.js";
@@ -123,8 +127,12 @@ const CATEGORIES: Record<string, string[]> = {
     "manager.manager_start",
     "manager.manager_stop",
     "manager.manager_restart",
+    "manager.manager_kill",
+    "manager.manager_add",
+    "manager.manager_remove",
     "manager.manager_properties_get",
     "manager.manager_properties_set",
+    "manager.project_name",
     "manager.system_info",
   ],
   opcua: [
@@ -263,14 +271,18 @@ export function registerAllTools(server: McpServer): void {
   reg("pv_range.pv_range_set", registerPvRangeSet);
   reg("pv_range.pv_range_delete", registerPvRangeDelete);
 
-  // ── Manager / System Info ────────────────────────────────
+  // ── Manager / System Info (PMON TCP) ────────────────────
   reg("manager.manager_list", registerManagerList);
   reg("manager.manager_status", registerManagerStatus);
   reg("manager.manager_start", registerManagerStart);
   reg("manager.manager_stop", registerManagerStop);
   reg("manager.manager_restart", registerManagerRestart);
+  reg("manager.manager_kill", registerManagerKill);
+  reg("manager.manager_add", registerManagerAdd);
+  reg("manager.manager_remove", registerManagerRemove);
   reg("manager.manager_properties_get", registerManagerPropertiesGet);
   reg("manager.manager_properties_set", registerManagerPropertiesSet);
+  reg("manager.project_name", registerProjectName);
   reg("manager.system_info", registerSystemInfo);
 
   // ── OPC UA Integration ───────────────────────────────────
