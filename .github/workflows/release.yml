@@ -45,12 +45,12 @@ jobs:
         run: npm run build
 
       - name: Create release archive
-        run: |
-          Compress-Archive -Path dist/* -DestinationPath winccoa-mcp-server-${{ github.ref_name }}.zip
-        shell: pwsh
+        # tar is available on Windows 10+ and creates a platform-neutral archive
+        # -C dist . changes into the dist directory first so files are at the archive root
+        run: tar -czf winccoa-mcp-server-${{ github.ref_name }}.tar.gz -C dist .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: winccoa-mcp-server-${{ github.ref_name }}.zip
+          files: winccoa-mcp-server-${{ github.ref_name }}.tar.gz
           generate_release_notes: true
