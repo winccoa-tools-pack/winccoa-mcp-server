@@ -1,11 +1,11 @@
 /**
- * Unit tests for manager/manager_stop tool
+ * Unit tests for manager.manager_stop tool (PMON TCP).
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WinccoaManager } from "winccoa-manager";
-import { setWinccoaInstance } from "../../winccoa-client.js";
+import { setPmonClientInstance } from "../../pmon/pmon-client-accessor.js";
+import type { PmonClient } from "../../pmon/pmon-client.js";
 import { registerManagerStop } from "./manager-stop.js";
 
 function buildServer() {
@@ -25,73 +25,70 @@ function buildServer() {
 }
 
 describe("manager.manager_stop", () => {
-  let mockWinccoa: WinccoaManager;
+  let mockPmon: { [K in keyof PmonClient]: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    mockWinccoa = new WinccoaManager();
-    setWinccoaInstance(mockWinccoa);
-    vi.clearAllMocks();
-    // No -num in argv by default
+    mockPmon = {
+      getManagerList: vi.fn(),
+      getManagerStati: vi.fn(),
+      startManager: vi.fn(),
+      stopManager: vi.fn(),
+      killManager: vi.fn(),
+      addManager: vi.fn(),
+      removeManager: vi.fn(),
+      getManagerProperties: vi.fn(),
+      setManagerProperties: vi.fn(),
+      getProjectName: vi.fn(),
+    };
+    setPmonClientInstance(mockPmon as unknown as PmonClient);
     process.argv = ["node", "index.js"];
     delete process.env.MCP_MANAGER_NUM;
   });
 
-  it("registers a tool named manager/manager_stop", () => {
-    const { fakeServer } = buildServer();
-    registerManagerStop(fakeServer);
-    expect(fakeServer.registerTool).toHaveBeenCalledWith("manager.manager_stop", expect.any(Object), expect.any(Function));
-  });
-
-  it("returns error when manager DP does not exist", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(false);
+  it("sends stop command and returns confirmation", async () => {
+    mockPmon.stopManager.mockResolvedValue({ success: true, data: "OK" });
 
     const { fakeServer, invoke } = buildServer();
     registerManagerStop(fakeServer);
 
-    const result = (await invoke({ managerNum: 99 })) as { isError?: boolean; content: Array<{ text: string }> };
-    expect(result.isError).toBe(true);
-    expect(result.content[0]!.text).toContain("does not exist");
-  });
-
-  it("calls dpSetWait with Stop=1 when manager exists", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(true);
-    vi.mocked(mockWinccoa.dpGet).mockResolvedValue(["WCCOActrl"]);
-
-    const { fakeServer, invoke } = buildServer();
-    registerManagerStop(fakeServer);
-
-    await invoke({ managerNum: 5 });
-
-    expect(mockWinccoa.dpSetWait).toHaveBeenCalledWith(
-      ["_pmon:_pmon.Managers.5.Stop"],
-      [1],
-    );
-  });
-
-  it("returns confirmation message on success", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(true);
-    vi.mocked(mockWinccoa.dpGet).mockResolvedValue(["WCCOAui"]);
-
-    const { fakeServer, invoke } = buildServer();
-    registerManagerStop(fakeServer);
-
-    const result = (await invoke({ managerNum: 5 })) as { isError?: boolean; content: Array<{ text: string }> };
-    expect(result.isError).toBeUndefined();
+    const result = (await invoke({ managerIndex: 3 })) as { content: Array<{ text: string }> };
+    expect(mockPmon.stopManager).toHaveBeenCalledWith(3);
     expect(result.content[0]!.text).toContain("stop command sent");
-    expect(result.content[0]!.text).toContain("WCCOAui");
   });
 
-  it("prevents self-stop when MCP_MANAGER_NUM matches", async () => {
-    process.env.MCP_MANAGER_NUM = "4";
+  it("returns error when PMON reports failure", async () => {
+    mockPmon.stopManager.mockResolvedValue({ success: false, error: "Manager not running" });
+
+    const { fakeServer, invoke } = buildServer();
+    registerManagerStop(fakeServer);
+
+    const result = (await invoke({ managerIndex: 3 })) as { isError?: boolean; content: Array<{ text: string }> };
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toContain("Manager not running");
+  });
+
+  it("prevents self-stop when own manager num matches", async () => {
+    process.env.MCP_MANAGER_NUM = "7";
     vi.resetModules();
 
-    // Re-import after changing env
     const { registerManagerStop: reg } = await import("./manager-stop.js");
+    const { setPmonClientInstance: setPmon } = await import("../../pmon/pmon-client-accessor.js");
+    setPmon(mockPmon as unknown as PmonClient);
+
+    mockPmon.getManagerStati.mockResolvedValue({
+      managers: [
+        { index: 3, state: 2, pid: 200, startMode: 2, startTime: "", manNum: 7 },
+      ],
+      modeNumeric: 1,
+      modeString: "MONITOR",
+      emergencyActive: 0,
+      demoModeActive: 0,
+    });
 
     const { fakeServer, invoke } = buildServer();
     reg(fakeServer);
 
-    const result = (await invoke({ managerNum: 4 })) as { isError?: boolean; content: Array<{ text: string }> };
+    const result = (await invoke({ managerIndex: 3 })) as { isError?: boolean; content: Array<{ text: string }> };
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toContain("own manager");
 
@@ -99,22 +96,30 @@ describe("manager.manager_stop", () => {
   });
 
   it("allows stopping a different manager when own num is known", async () => {
-    process.env.MCP_MANAGER_NUM = "4";
+    process.env.MCP_MANAGER_NUM = "7";
     vi.resetModules();
 
     const { registerManagerStop: reg } = await import("./manager-stop.js");
-    // Re-inject mock after module reset
-    const { setWinccoaInstance: set } = await import("../../winccoa-client.js");
-    set(mockWinccoa);
+    const { setPmonClientInstance: setPmon } = await import("../../pmon/pmon-client-accessor.js");
+    setPmon(mockPmon as unknown as PmonClient);
 
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(true);
-    vi.mocked(mockWinccoa.dpGet).mockResolvedValue(["WCCOAui"]);
+    mockPmon.getManagerStati.mockResolvedValue({
+      managers: [
+        { index: 3, state: 2, pid: 200, startMode: 2, startTime: "", manNum: 5 },
+      ],
+      modeNumeric: 1,
+      modeString: "MONITOR",
+      emergencyActive: 0,
+      demoModeActive: 0,
+    });
+    mockPmon.stopManager.mockResolvedValue({ success: true, data: "OK" });
 
     const { fakeServer, invoke } = buildServer();
     reg(fakeServer);
 
-    const result = (await invoke({ managerNum: 5 })) as { isError?: boolean; content: Array<{ text: string }> };
+    const result = (await invoke({ managerIndex: 3 })) as { isError?: boolean; content: Array<{ text: string }> };
     expect(result.isError).toBeUndefined();
+    expect(result.content[0]!.text).toContain("stop command sent");
 
     delete process.env.MCP_MANAGER_NUM;
   });

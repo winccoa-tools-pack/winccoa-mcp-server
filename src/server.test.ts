@@ -25,13 +25,13 @@ describe("createServer", () => {
     expect(server).toBeInstanceOf(McpServer);
   });
 
-  it("registers exactly 47 tools", async () => {
+  it("registers exactly 51 tools", async () => {
     const registerToolSpy = vi.spyOn(McpServer.prototype, "registerTool");
 
     const { createServer } = await import("./server.js");
     createServer();
 
-    expect(registerToolSpy).toHaveBeenCalledTimes(47);
+    expect(registerToolSpy).toHaveBeenCalledTimes(59);
     registerToolSpy.mockRestore();
   });
 

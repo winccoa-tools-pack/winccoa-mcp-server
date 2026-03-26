@@ -1,24 +1,22 @@
 /**
  * Tool: manager/manager_list
  *
- * List all WinCC OA managers registered in the current project via the _pmon DPs.
- * Uses the native WinCC OA DP fabric — no TCP connection to PMON is opened.
+ * List all WinCC OA managers registered in the current project via PMON TCP.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getWinccoa } from "../../winccoa-client.js";
-import { handleWinccoaError } from "../../utils/error-handler.js";
+import { getPmonClient } from "../../pmon/pmon-client-accessor.js";
+import { handlePmonError } from "../../utils/error-handler.js";
 import { safeJsonStringify, textContent, errorContent } from "../../utils/formatters.js";
+import { PmonState } from "../../pmon/pmon-types.js";
 
-/**
- * Extract the manager number from a _pmon_Manager DP name.
- * E.g. "_pmon:_pmon.Managers.3" → 3, null if not parseable.
- */
-function extractManagerNum(dpName: string): number | null {
-  const match = /\.Managers\.(\d+)$/.exec(dpName);
-  return match ? parseInt(match[1]!, 10) : null;
-}
+const STATE_NAMES: Record<number, string> = {
+  [PmonState.Stopped]: "Stopped",
+  [PmonState.Init]: "Initializing",
+  [PmonState.Running]: "Running",
+  [PmonState.Blocked]: "Blocked",
+};
 
 export function registerManagerList(server: McpServer): void {
   server.registerTool(
@@ -27,92 +25,74 @@ export function registerManagerList(server: McpServer): void {
       title: "List WinCC OA Managers",
       description: `List all managers registered in the current WinCC OA project.
 
-Retrieves manager information from the _pmon datapoint system — no external
-PMON TCP connection is used.
+Retrieves manager information from PMON via TCP (port 4999 by default).
 
 Args:
-  - includeState (boolean, default true):
-      When true, includes the RunState of each manager.
+  - includeStatus (boolean, default true):
+      When true, also fetches live status (state, PID) for each manager.
 
 Returns:
-  Array of manager objects, sorted by manager number:
+  Array of manager objects, sorted by index:
   [
     {
-      "num": number,           // manager number (1-based)
-      "dpName": string,        // _pmon DP name, e.g. "_pmon:_pmon.Managers.1"
-      "name": string,          // manager name, e.g. "WCCOActrl"
-      "runState": number | undefined  // run state value (if includeState is true)
+      "index": number,           // 0-based PMON index (0 = PMON itself)
+      "manager": string,         // manager name, e.g. "WCCOActrl"
+      "startMode": string,       // "manual", "once", or "always"
+      "secKill": number,         // seconds before SIGKILL
+      "restartCount": number,    // automatic restart attempts
+      "resetMin": number,        // minutes before restart counter resets
+      "options": string,         // command-line options
+      "state": string | undefined,   // e.g. "Running" (if includeStatus)
+      "pid": number | undefined       // OS process ID (if includeStatus)
     },
     ...
   ]
 
-RunState values (WinCC OA): 0=Unknown, 1=Starting, 2=Running, 3=Stopping, 4=Stopped,
-5=Error, 6=Waiting.
+State values: Stopped, Initializing, Running, Blocked.
 
 Notes:
-  - Use manager.manager_status for detailed information on a specific manager.
-  - Manager stop/start operations are not available via this MCP server to prevent
-    accidental process termination.`,
+  - Use manager.manager_status for detailed status of a specific manager.
+  - Manager indices are 0-based; index 0 is PMON itself.`,
       inputSchema: {
-        includeState: z
+        includeStatus: z
           .boolean()
           .default(true)
-          .describe("Include RunState for each manager (default: true)"),
+          .describe("Include live status (state, PID) for each manager (default: true)"),
       },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
+        openWorldHint: true,
       },
     },
-    async ({ includeState }) => {
+    async ({ includeStatus }) => {
       try {
-        const winccoa = getWinccoa();
+        const pmon = getPmonClient();
+        const list = await pmon.getManagerList();
 
-        // Get all _pmon_Manager DPs from the _pmon system
-        const managerDps = winccoa.dpNames("_pmon:*", "_pmon_Manager");
-
-        if (managerDps.length === 0) {
-          return textContent(safeJsonStringify([]));
+        if (!includeStatus) {
+          return textContent(safeJsonStringify(list));
         }
 
-        // Build the attribute list to query
-        const nameAttrs = managerDps.map((dp) => `${dp}.Name`);
-        const stateAttrs = includeState
-          ? managerDps.map((dp) => `${dp}.RunState`)
-          : [];
+        // Merge status info
+        const status = await pmon.getManagerStati();
+        const statusByIndex = new Map(
+          status.managers.map((m) => [m.index, m]),
+        );
 
-        // Fetch name and optionally RunState in parallel
-        const [nameValues, stateValues] = await Promise.all([
-          winccoa.dpGet(nameAttrs) as Promise<unknown[]>,
-          stateAttrs.length > 0
-            ? (winccoa.dpGet(stateAttrs) as Promise<unknown[]>)
-            : Promise.resolve([]),
-        ]);
-
-        const names = Array.isArray(nameValues) ? nameValues : [nameValues];
-        const states = Array.isArray(stateValues) ? stateValues : [stateValues];
-
-        const managers = managerDps.map((dp, i) => {
-          const num = extractManagerNum(dp);
-          const entry: Record<string, unknown> = {
-            num,
-            dpName: dp,
-            name: names[i],
+        const merged = list.map((entry) => {
+          const s = statusByIndex.get(entry.index);
+          return {
+            ...entry,
+            state: s ? (STATE_NAMES[s.state] ?? String(s.state)) : undefined,
+            pid: s?.pid,
           };
-          if (includeState) {
-            entry["runState"] = states[i];
-          }
-          return entry;
         });
 
-        // Sort by manager number
-        managers.sort((a, b) => ((a["num"] as number) ?? 0) - ((b["num"] as number) ?? 0));
-
-        return textContent(safeJsonStringify(managers));
+        return textContent(safeJsonStringify(merged));
       } catch (error: unknown) {
-        return errorContent(handleWinccoaError(error));
+        return errorContent(handlePmonError(error));
       }
     },
   );

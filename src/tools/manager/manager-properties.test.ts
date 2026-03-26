@@ -1,11 +1,11 @@
 /**
- * Unit tests for manager/manager_properties_get / _set tools
+ * Unit tests for manager.manager_properties_get / _set tools (PMON TCP).
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WinccoaManager } from "winccoa-manager";
-import { setWinccoaInstance } from "../../winccoa-client.js";
+import { setPmonClientInstance } from "../../pmon/pmon-client-accessor.js";
+import type { PmonClient } from "../../pmon/pmon-client.js";
 import { registerManagerPropertiesGet, registerManagerPropertiesSet } from "./manager-properties.js";
 
 function buildServer() {
@@ -25,113 +25,109 @@ function buildServer() {
 }
 
 describe("manager.manager_properties_get", () => {
-  let mockWinccoa: WinccoaManager;
+  let mockPmon: { [K in keyof PmonClient]: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    mockWinccoa = new WinccoaManager();
-    setWinccoaInstance(mockWinccoa);
-    vi.clearAllMocks();
+    mockPmon = {
+      getManagerList: vi.fn(),
+      getManagerStati: vi.fn(),
+      startManager: vi.fn(),
+      stopManager: vi.fn(),
+      killManager: vi.fn(),
+      addManager: vi.fn(),
+      removeManager: vi.fn(),
+      getManagerProperties: vi.fn(),
+      setManagerProperties: vi.fn(),
+      getProjectName: vi.fn(),
+    };
+    setPmonClientInstance(mockPmon as unknown as PmonClient);
   });
 
-  it("registers tool with correct name", () => {
-    const { fakeServer } = buildServer();
-    registerManagerPropertiesGet(fakeServer);
-    expect(fakeServer.registerTool).toHaveBeenCalledWith(
-      "manager.manager_properties_get",
-      expect.any(Object),
-      expect.any(Function),
-    );
-  });
-
-  it("returns error when manager does not exist", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(false);
+  it("returns properties for a valid manager", async () => {
+    mockPmon.getManagerProperties.mockResolvedValue({
+      startMode: "always",
+      secKill: 30,
+      restartCount: 3,
+      resetMin: 5,
+      options: "-num 1",
+    });
 
     const { fakeServer, invoke } = buildServer();
     registerManagerPropertiesGet(fakeServer);
 
-    const result = (await invoke({ managerNum: 99 })) as { isError?: boolean; content: Array<{ text: string }> };
+    const result = (await invoke({ managerIndex: 2 })) as { content: Array<{ text: string }> };
+    const data = JSON.parse(result.content[0]!.text);
+    expect(data.index).toBe(2);
+    expect(data.startMode).toBe("always");
+    expect(data.secKill).toBe(30);
+    expect(data.options).toBe("-num 1");
+  });
+
+  it("returns error on PMON failure", async () => {
+    mockPmon.getManagerProperties.mockRejectedValue(new Error("Timeout"));
+
+    const { fakeServer, invoke } = buildServer();
+    registerManagerPropertiesGet(fakeServer);
+
+    const result = (await invoke({ managerIndex: 2 })) as { isError?: boolean; content: Array<{ text: string }> };
     expect(result.isError).toBe(true);
-    expect(result.content[0]!.text).toContain("does not exist");
-  });
-
-  it("returns properties as JSON on success", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(true);
-    vi.mocked(mockWinccoa.dpGet).mockResolvedValue(["WCCOActrl", 2, 10, 5, 3]);
-
-    const { fakeServer, invoke } = buildServer();
-    registerManagerPropertiesGet(fakeServer);
-
-    const result = (await invoke({ managerNum: 3 })) as { isError?: boolean; content: Array<{ text: string }> };
-    expect(result.isError).toBeUndefined();
-
-    const parsed = JSON.parse(result.content[0]!.text);
-    expect(parsed.managerNum).toBe(3);
-    expect(parsed.name).toBe("WCCOActrl");
-    expect(parsed.startMode).toBe(2);
-    expect(parsed.killTime).toBe(10);
+    expect(result.content[0]!.text).toContain("Timeout");
   });
 });
 
 describe("manager.manager_properties_set", () => {
-  let mockWinccoa: WinccoaManager;
+  let mockPmon: { [K in keyof PmonClient]: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    mockWinccoa = new WinccoaManager();
-    setWinccoaInstance(mockWinccoa);
-    vi.clearAllMocks();
-  });
-
-  it("registers tool with correct name", () => {
-    const { fakeServer } = buildServer();
-    registerManagerPropertiesSet(fakeServer);
-    expect(fakeServer.registerTool).toHaveBeenCalledWith(
-      "manager.manager_properties_set",
-      expect.any(Object),
-      expect.any(Function),
-    );
-  });
-
-  it("returns error when no properties are provided", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(true);
-
-    const { fakeServer, invoke } = buildServer();
-    registerManagerPropertiesSet(fakeServer);
-
-    const result = (await invoke({ managerNum: 3 })) as { isError?: boolean; content: Array<{ text: string }> };
-    expect(result.isError).toBe(true);
-    expect(result.content[0]!.text).toContain("No properties specified");
-  });
-
-  it("calls dpSetWait with only the provided properties", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(true);
-
-    const { fakeServer, invoke } = buildServer();
-    registerManagerPropertiesSet(fakeServer);
-
-    await invoke({ managerNum: 3, killTime: 15, startMode: 2 });
-
-    const call = vi.mocked(mockWinccoa.dpSetWait).mock.calls[0];
-    const dpes = call?.[0] as string[];
-    const vals = call?.[1] as number[];
-
-    // Both attributes should be set (order may vary by insertion order)
-    expect(dpes).toContain("_pmon:_pmon.Managers.3.StartMode");
-    expect(dpes).toContain("_pmon:_pmon.Managers.3.KillTime");
-    expect(vals).toContain(2);
-    expect(vals).toContain(15);
-  });
-
-  it("returns confirmation message with changed properties", async () => {
-    vi.mocked(mockWinccoa.dpExists).mockReturnValue(true);
-
-    const { fakeServer, invoke } = buildServer();
-    registerManagerPropertiesSet(fakeServer);
-
-    const result = (await invoke({ managerNum: 3, resetStartCount: 5 })) as {
-      isError?: boolean;
-      content: Array<{ text: string }>;
+    mockPmon = {
+      getManagerList: vi.fn(),
+      getManagerStati: vi.fn(),
+      startManager: vi.fn(),
+      stopManager: vi.fn(),
+      killManager: vi.fn(),
+      addManager: vi.fn(),
+      removeManager: vi.fn(),
+      getManagerProperties: vi.fn(),
+      setManagerProperties: vi.fn(),
+      getProjectName: vi.fn(),
     };
-    expect(result.isError).toBeUndefined();
-    expect(result.content[0]!.text).toContain("ResetStartCount=5");
+    setPmonClientInstance(mockPmon as unknown as PmonClient);
+  });
+
+  it("sets properties and returns confirmation", async () => {
+    mockPmon.setManagerProperties.mockResolvedValue({ success: true, data: "OK" });
+
+    const { fakeServer, invoke } = buildServer();
+    registerManagerPropertiesSet(fakeServer);
+
+    const result = (await invoke({
+      managerIndex: 2,
+      startMode: "manual",
+      secKill: 60,
+      restartCount: 5,
+      resetMin: 10,
+      options: "",
+    })) as { content: Array<{ text: string }> };
+
+    expect(mockPmon.setManagerProperties).toHaveBeenCalledWith(2, "manual", 60, 5, 10, "");
+    expect(result.content[0]!.text).toContain("properties updated");
+  });
+
+  it("returns error when PMON reports failure", async () => {
+    mockPmon.setManagerProperties.mockResolvedValue({ success: false, error: "Access denied" });
+
+    const { fakeServer, invoke } = buildServer();
+    registerManagerPropertiesSet(fakeServer);
+
+    const result = (await invoke({
+      managerIndex: 2,
+      startMode: "always",
+      secKill: 30,
+      restartCount: 3,
+      resetMin: 5,
+      options: "",
+    })) as { isError?: boolean; content: Array<{ text: string }> };
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toContain("Access denied");
   });
 });

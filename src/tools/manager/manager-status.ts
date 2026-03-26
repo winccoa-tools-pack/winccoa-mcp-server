@@ -1,29 +1,28 @@
 /**
  * Tool: manager/manager_status
  *
- * Read detailed status attributes for a specific WinCC OA manager from the _pmon DPs.
- * Uses the native WinCC OA DP fabric — no TCP connection to PMON is opened.
+ * Read detailed status for a specific WinCC OA manager via PMON TCP.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getWinccoa } from "../../winccoa-client.js";
-import { handleWinccoaError } from "../../utils/error-handler.js";
+import { getPmonClient } from "../../pmon/pmon-client-accessor.js";
+import { handlePmonError } from "../../utils/error-handler.js";
 import { safeJsonStringify, textContent, errorContent } from "../../utils/formatters.js";
+import { PmonState } from "../../pmon/pmon-types.js";
 
-/** Attributes read from each _pmon_Manager DP. */
-const MANAGER_ATTRS = [
-  "Name",
-  "State",
-  "RunState",
-  "StartCount",
-  "Options",
-  "StartMode",
-  "KillTime",
-  "ResetTime",
-  "ResetStartCount",
-  "Pid",
-] as const;
+const STATE_NAMES: Record<number, string> = {
+  [PmonState.Stopped]: "Stopped",
+  [PmonState.Init]: "Initializing",
+  [PmonState.Running]: "Running",
+  [PmonState.Blocked]: "Blocked",
+};
+
+const START_MODE_NAMES: Record<number, string> = {
+  0: "Manual",
+  1: "Once",
+  2: "Always",
+};
 
 export function registerManagerStatus(server: McpServer): void {
   server.registerTool(
@@ -31,75 +30,85 @@ export function registerManagerStatus(server: McpServer): void {
     {
       title: "Get Manager Status",
       description: `Read detailed status information for a specific WinCC OA manager
-identified by its manager number.
+identified by its PMON index.
 
-Retrieves attributes from the _pmon datapoint system — no external PMON TCP
-connection is used.
+Retrieves status and configuration from PMON via TCP.
 
 Args:
-  - managerNum (integer ≥ 1): The manager number to query. Use manager.manager_list
-    to discover available manager numbers.
+  - managerIndex (integer >= 0): The 0-based PMON index. Use manager.manager_list
+    to discover available indices.
 
 Returns:
   {
-    "managerNum": number,
-    "dpName": string,          // e.g. "_pmon:_pmon.Managers.2"
-    "name": string,            // manager executable name, e.g. "WCCOActrl"
-    "state": number,           // internal state value
-    "runState": number,        // 0=Unknown 1=Starting 2=Running 3=Stopping 4=Stopped 5=Error 6=Waiting
-    "startCount": number,      // how many times this manager has been started
-    "options": string,         // command-line options
-    "startMode": number,       // 0=Manual 1=Once 2=Always
-    "killTime": number,        // seconds before force-kill on stop
-    "resetTime": number,       // minutes before allowing restart
-    "resetStartCount": number, // max automatic restart attempts
-    "pid": number | undefined  // OS process ID when running
+    "index": number,
+    "manager": string,           // manager executable name
+    "state": string,             // "Stopped", "Initializing", "Running", or "Blocked"
+    "stateCode": number,         // numeric state (0-3)
+    "pid": number,               // OS process ID (0 when not running)
+    "startMode": string,         // "Manual", "Once", or "Always"
+    "startTime": string,         // when the manager was started
+    "manNum": number,            // manager number assigned by Data manager
+    "secKill": number,           // seconds before force-kill
+    "restartCount": number,      // automatic restart attempts
+    "resetMin": number,          // minutes before restart counter resets
+    "options": string            // command-line options
   }
 
 Notes:
   - Use manager.manager_list to get an overview of all managers.
-  - Manager stop/start operations are not available via this MCP server to prevent
-    accidental process termination.`,
+  - Index 0 is PMON itself.`,
       inputSchema: {
-        managerNum: z
+        managerIndex: z
           .number()
           .int()
-          .positive()
-          .describe("Manager number to query (use manager/manager_list to find manager numbers)"),
+          .min(0)
+          .describe("0-based PMON index (use manager.manager_list to find indices)"),
       },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
+        openWorldHint: true,
       },
     },
-    async ({ managerNum }) => {
+    async ({ managerIndex }) => {
       try {
-        const winccoa = getWinccoa();
+        const pmon = getPmonClient();
 
-        const dpName = `_pmon:_pmon.Managers.${managerNum}`;
+        const [statusResult, listResult] = await Promise.all([
+          pmon.getManagerStati(),
+          pmon.getManagerList(),
+        ]);
 
-        // Verify the manager DP exists
-        if (!winccoa.dpExists(dpName)) {
+        const statusEntry = statusResult.managers.find((m) => m.index === managerIndex);
+        const listEntry = listResult.find((m) => m.index === managerIndex);
+
+        if (!statusEntry && !listEntry) {
           return errorContent(
-            `Manager number ${managerNum} does not exist. Use manager.manager_list to see available managers.`,
+            `Manager index ${managerIndex} does not exist. Use manager.manager_list to see available managers.`,
           );
         }
 
-        const attrDpes = MANAGER_ATTRS.map((attr) => `${dpName}.${attr}`);
-        const values = (await winccoa.dpGet(attrDpes)) as unknown[];
-
-        const result: Record<string, unknown> = { managerNum, dpName };
-        MANAGER_ATTRS.forEach((attr, i) => {
-          // Use camelCase keys: "Name" → "name", "RunState" → "runState", etc.
-          const key = attr.charAt(0).toLowerCase() + attr.slice(1);
-          result[key] = values[i];
-        });
+        const result = {
+          index: managerIndex,
+          manager: listEntry?.manager ?? "unknown",
+          state: statusEntry ? (STATE_NAMES[statusEntry.state] ?? String(statusEntry.state)) : "unknown",
+          stateCode: statusEntry?.state ?? -1,
+          pid: statusEntry?.pid ?? 0,
+          startMode: statusEntry
+            ? (START_MODE_NAMES[statusEntry.startMode] ?? String(statusEntry.startMode))
+            : (listEntry?.startMode ?? "unknown"),
+          startTime: statusEntry?.startTime ?? "",
+          manNum: statusEntry?.manNum ?? 0,
+          secKill: listEntry?.secKill ?? 0,
+          restartCount: listEntry?.restartCount ?? 0,
+          resetMin: listEntry?.resetMin ?? 0,
+          options: listEntry?.options ?? "",
+        };
 
         return textContent(safeJsonStringify(result));
       } catch (error: unknown) {
-        return errorContent(handleWinccoaError(error));
+        return errorContent(handlePmonError(error));
       }
     },
   );
