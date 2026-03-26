@@ -37,17 +37,39 @@ jobs:
         run: npm test
 
       - name: Create .env placeholder
-        # .env is gitignored; the build script copies it to dist as a template.
+        # .env is gitignored; the build script copies .env.example to dist as a template.
         run: New-Item -ItemType File -Path .env -Force
         shell: pwsh
 
       - name: Build bundle
+        # Outputs: dist/index.js (esbuild-bundled) + dist/.env.example (copied by cpy)
         run: npm run build
 
+      - name: Copy package.json to dist
+        # Required by setupWizard.ts: after extraction it runs
+        # `npm install "file:<winccoa-manager-path>"` in the mcpServer dir,
+        # which needs a package.json to exist.
+        run: cp package.json dist/
+        shell: bash
+
+      - name: Verify dist contents
+        run: |
+          echo "dist/ contents:"
+          ls dist/
+          for f in index.js .env.example package.json; do
+            if [ ! -f "dist/$f" ]; then
+              echo "ERROR: Missing required file: dist/$f"
+              exit 1
+            fi
+            echo "OK: dist/$f"
+          done
+        shell: bash
+
       - name: Create release archive
-        # tar is available on Windows 10+ and creates a platform-neutral archive
-        # -C dist . changes into the dist directory first so files are at the archive root
+        # -C dist . puts contents at the archive root (no dist/ prefix in paths).
+        # setupWizard.ts extracts with: tar -xzf archive.tar.gz -C mcpServerDir
         run: tar -czf winccoa-mcp-server-${{ github.ref_name }}.tar.gz -C dist .
+        shell: bash
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
