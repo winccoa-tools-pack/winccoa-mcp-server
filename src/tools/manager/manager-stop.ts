@@ -1,14 +1,13 @@
 /**
  * Tool: manager/manager_stop
  *
- * Stop a WinCC OA manager by writing to its _pmon Stop DP attribute.
- * Uses the native WinCC OA DP fabric — no TCP connection to PMON is opened.
+ * Stop a WinCC OA manager via PMON TCP (SIGTERM).
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getWinccoa } from "../../winccoa-client.js";
-import { handleWinccoaError } from "../../utils/error-handler.js";
+import { getPmonClient } from "../../pmon/pmon-client-accessor.js";
+import { handlePmonError } from "../../utils/error-handler.js";
 import { textContent, errorContent } from "../../utils/formatters.js";
 import { getOwnManagerNum } from "../../utils/manager-num.js";
 
@@ -17,74 +16,68 @@ export function registerManagerStop(server: McpServer): void {
     "manager.manager_stop",
     {
       title: "Stop WinCC OA Manager",
-      description: `Stop a running WinCC OA manager by its manager number.
+      description: `Stop a running WinCC OA manager by its PMON index.
 
-Writes a stop command to the _pmon.Managers.<num>.Stop datapoint attribute.
-The stop command is handled by the Process Monitor (PMON) — no external TCP
-connection to PMON is opened.
+Sends a SINGLE_MGR:STOP command (SIGTERM) to PMON via TCP.
 
 Safety: This tool prevents you from stopping the manager that is running
 the MCP server itself to avoid self-termination.
 
 Args:
-  - managerNum (integer ≥ 1): The manager number to stop. Use
-    manager.manager_list to discover available manager numbers.
+  - managerIndex (integer >= 1): The PMON index to stop. Use
+    manager.manager_list to discover available indices.
 
 Returns:
-  Confirmation message with the manager name.
+  Confirmation message.
 
 Notes:
-  - Use manager.manager_list to find available manager numbers.
+  - Use manager.manager_list to find available manager indices.
   - Use manager.manager_status to check the run state after stopping.
   - PMON respects the manager's configured KillTime before force-killing.
-  - RunState values: 0=Unknown, 1=Starting, 2=Running, 3=Stopping, 4=Stopped,
-    5=Error, 6=Waiting.`,
+  - Index 0 is PMON itself and cannot be stopped this way.`,
       inputSchema: {
-        managerNum: z
+        managerIndex: z
           .number()
           .int()
           .positive()
-          .describe("Manager number to stop (use manager/manager_list to find manager numbers)"),
+          .describe("PMON index to stop (use manager.manager_list to find indices)"),
       },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: false,
-        openWorldHint: false,
+        openWorldHint: true,
       },
     },
-    async ({ managerNum }) => {
+    async ({ managerIndex }) => {
       try {
-        const winccoa = getWinccoa();
+        const pmon = getPmonClient();
 
-        // Self-stop prevention: compare target manager num against own manager num
+        // Self-stop prevention: check if this manager's manNum matches ours
         const ownManagerNum = getOwnManagerNum();
-        if (ownManagerNum !== null && managerNum === ownManagerNum) {
-          return errorContent(
-            `Cannot stop manager ${managerNum}: that is the MCP server's own manager. ` +
-            `Stopping it would terminate this connection.`,
-          );
+        if (ownManagerNum !== null) {
+          const status = await pmon.getManagerStati();
+          const target = status.managers.find((m) => m.index === managerIndex);
+          if (target && target.manNum === ownManagerNum) {
+            return errorContent(
+              `Cannot stop manager at index ${managerIndex}: that is the MCP server's own manager ` +
+              `(manager number ${ownManagerNum}). Stopping it would terminate this connection.`,
+            );
+          }
         }
 
-        const dpName = `_pmon:_pmon.Managers.${managerNum}`;
+        const result = await pmon.stopManager(managerIndex);
 
-        if (!winccoa.dpExists(dpName)) {
-          return errorContent(
-            `Manager number ${managerNum} does not exist. Use manager.manager_list to see available managers.`,
-          );
+        if (!result.success) {
+          return errorContent(`Failed to stop manager ${managerIndex}: ${result.error}`);
         }
-
-        const [managerName] = (await winccoa.dpGet([`${dpName}.Name`])) as [unknown];
-
-        // Write Stop = 1 to trigger PMON stop command
-        await winccoa.dpSetWait([`${dpName}.Stop`], [1]);
 
         return textContent(
-          `Manager ${managerNum} ("${String(managerName)}") stop command sent successfully. ` +
-          `Use manager.manager_status to check the current run state.`,
+          `Manager ${managerIndex} stop command sent successfully. ` +
+          `Use manager.manager_status to check the current state.`,
         );
       } catch (error: unknown) {
-        return errorContent(handleWinccoaError(error));
+        return errorContent(handlePmonError(error));
       }
     },
   );

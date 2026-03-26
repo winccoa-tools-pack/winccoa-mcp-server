@@ -1,81 +1,62 @@
 /**
  * Tools: manager/manager_properties_get / manager/manager_properties_set
  *
- * Read and write operational properties of a WinCC OA manager via _pmon DPs.
+ * Read and write operational properties of a WinCC OA manager via PMON TCP.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getWinccoa } from "../../winccoa-client.js";
-import { handleWinccoaError } from "../../utils/error-handler.js";
+import { getPmonClient } from "../../pmon/pmon-client-accessor.js";
+import { handlePmonError } from "../../utils/error-handler.js";
 import { safeJsonStringify, textContent, errorContent } from "../../utils/formatters.js";
-
-/** Properties that can be read and written via _pmon DPs. */
-const PROPERTIES = ["StartMode", "KillTime", "ResetTime", "ResetStartCount"] as const;
-type ManagerProperty = (typeof PROPERTIES)[number];
 
 export function registerManagerPropertiesGet(server: McpServer): void {
   server.registerTool(
     "manager.manager_properties_get",
     {
       title: "Get Manager Properties",
-      description: `Read operational properties of a WinCC OA manager from its _pmon DP.
+      description: `Read operational properties of a WinCC OA manager via PMON TCP.
 
 Args:
-  - managerNum (integer ≥ 1): The manager number. Use manager.manager_list
-    to discover available manager numbers.
+  - managerIndex (integer >= 1): The PMON index. Use manager.manager_list
+    to discover available indices.
 
 Returns:
   {
-    "managerNum": number,
-    "name": string,
-    "startMode": number,       // 0=Manual, 1=Once, 2=Always
-    "killTime": number,        // seconds before force-kill on stop
-    "resetTime": number,       // minutes before allowing automatic restart
-    "resetStartCount": number  // max automatic restart attempts before giving up
+    "index": number,
+    "startMode": string,       // "manual", "once", or "always"
+    "secKill": number,         // seconds before force-kill on stop
+    "restartCount": number,    // automatic restart attempts
+    "resetMin": number,        // minutes before restart counter resets
+    "options": string          // command-line options
   }`,
       inputSchema: {
-        managerNum: z
+        managerIndex: z
           .number()
           .int()
           .positive()
-          .describe("Manager number (use manager/manager_list to find manager numbers)"),
+          .describe("PMON index (use manager.manager_list to find indices)"),
       },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
+        openWorldHint: true,
       },
     },
-    async ({ managerNum }) => {
+    async ({ managerIndex }) => {
       try {
-        const winccoa = getWinccoa();
-        const dpName = `_pmon:_pmon.Managers.${managerNum}`;
-
-        if (!winccoa.dpExists(dpName)) {
-          return errorContent(
-            `Manager number ${managerNum} does not exist. Use manager/manager_list to see available managers.`,
-          );
-        }
-
-        const attrs = ["Name", ...PROPERTIES].map((a) => `${dpName}.${a}`);
-        const values = (await winccoa.dpGet(attrs)) as unknown[];
-
-        const [name, startMode, killTime, resetTime, resetStartCount] = values;
+        const pmon = getPmonClient();
+        const props = await pmon.getManagerProperties(managerIndex);
 
         return textContent(
           safeJsonStringify({
-            managerNum,
-            name,
-            startMode,
-            killTime,
-            resetTime,
-            resetStartCount,
+            index: managerIndex,
+            ...props,
           }),
         );
       } catch (error: unknown) {
-        return errorContent(handleWinccoaError(error));
+        return errorContent(handlePmonError(error));
       }
     },
   );
@@ -86,91 +67,80 @@ export function registerManagerPropertiesSet(server: McpServer): void {
     "manager.manager_properties_set",
     {
       title: "Set Manager Properties",
-      description: `Write operational properties of a WinCC OA manager via its _pmon DP.
+      description: `Write operational properties of a WinCC OA manager via PMON TCP.
 
-Only the provided fields are written. Omitted fields are not changed.
+All property fields are required because PMON replaces the entire property set
+with SINGLE_MGR:PROP_PUT.
 
 Args:
-  - managerNum (integer ≥ 1): The manager number. Use manager.manager_list
-    to discover available manager numbers.
-  - startMode (integer, optional): 0=Manual, 1=Once, 2=Always
-  - killTime (integer ≥ 0, optional): Seconds before force-kill on stop.
-  - resetTime (integer ≥ 0, optional): Minutes before allowing restart.
-  - resetStartCount (integer ≥ 0, optional): Max automatic restart attempts.
+  - managerIndex (integer >= 1): The PMON index. Use manager.manager_list
+    to discover available indices.
+  - startMode (string): "manual", "once", or "always"
+  - secKill (integer >= 0): Seconds before force-kill on stop.
+  - restartCount (integer >= 0): Automatic restart attempts.
+  - resetMin (integer >= 0): Minutes before restart counter resets.
+  - options (string, optional): Command-line options (default: "").
 
 Returns:
-  Confirmation of which properties were updated.`,
+  Confirmation of the update.`,
       inputSchema: {
-        managerNum: z
+        managerIndex: z
           .number()
           .int()
           .positive()
-          .describe("Manager number (use manager/manager_list to find manager numbers)"),
+          .describe("PMON index (use manager.manager_list to find indices)"),
         startMode: z
+          .enum(["manual", "once", "always"])
+          .describe("Start mode: manual, once, or always"),
+        secKill: z
           .number()
           .int()
           .min(0)
-          .max(2)
-          .optional()
-          .describe("Start mode: 0=Manual, 1=Once, 2=Always"),
-        killTime: z
-          .number()
-          .int()
-          .min(0)
-          .optional()
           .describe("Seconds before force-kill on stop"),
-        resetTime: z
+        restartCount: z
           .number()
           .int()
           .min(0)
-          .optional()
-          .describe("Minutes before allowing automatic restart"),
-        resetStartCount: z
+          .describe("Automatic restart attempts"),
+        resetMin: z
           .number()
           .int()
           .min(0)
-          .optional()
-          .describe("Max automatic restart attempts"),
+          .describe("Minutes before restart counter resets"),
+        options: z
+          .string()
+          .default("")
+          .describe("Command-line options (default: empty)"),
       },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
+        openWorldHint: true,
       },
     },
-    async ({ managerNum, startMode, killTime, resetTime, resetStartCount }) => {
+    async ({ managerIndex, startMode, secKill, restartCount, resetMin, options }) => {
       try {
-        const winccoa = getWinccoa();
-        const dpName = `_pmon:_pmon.Managers.${managerNum}`;
+        const pmon = getPmonClient();
+        const result = await pmon.setManagerProperties(
+          managerIndex,
+          startMode,
+          secKill,
+          restartCount,
+          resetMin,
+          options,
+        );
 
-        if (!winccoa.dpExists(dpName)) {
-          return errorContent(
-            `Manager number ${managerNum} does not exist. Use manager/manager_list to see available managers.`,
-          );
+        if (!result.success) {
+          return errorContent(`Failed to set properties for manager ${managerIndex}: ${result.error}`);
         }
 
-        // Build the list of attributes and values to write
-        const propMap: Partial<Record<ManagerProperty, number>> = {};
-        if (startMode !== undefined) propMap["StartMode"] = startMode;
-        if (killTime !== undefined) propMap["KillTime"] = killTime;
-        if (resetTime !== undefined) propMap["ResetTime"] = resetTime;
-        if (resetStartCount !== undefined) propMap["ResetStartCount"] = resetStartCount;
-
-        const entries = Object.entries(propMap) as [ManagerProperty, number][];
-        if (entries.length === 0) {
-          return errorContent("No properties specified. Provide at least one of: startMode, killTime, resetTime, resetStartCount.");
-        }
-
-        const dpes = entries.map(([attr]) => `${dpName}.${attr}`);
-        const vals = entries.map(([, v]) => v);
-
-        await winccoa.dpSetWait(dpes, vals);
-
-        const updated = entries.map(([attr, val]) => `${attr}=${val}`).join(", ");
-        return textContent(`Manager ${managerNum}: updated ${updated}.`);
+        return textContent(
+          `Manager ${managerIndex}: properties updated (startMode=${startMode}, ` +
+          `secKill=${secKill}, restartCount=${restartCount}, resetMin=${resetMin}).`,
+        );
       } catch (error: unknown) {
-        return errorContent(handleWinccoaError(error));
+        return errorContent(handlePmonError(error));
       }
     },
   );
