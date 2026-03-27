@@ -99,7 +99,10 @@ jobs:
         shell: bash
         run: tar -czf "winccoa-mcp-server-v${{ steps.bump.outputs.new_version }}.tar.gz" -C dist .
 
-      - name: Commit version bump and push tag
+      - name: Push tag
+        # Push the tag first so the GitHub Release step can reference it.
+        # The version-bump commit push to main is done separately and is non-fatal
+        # in case branch protection rules prevent direct pushes.
         shell: bash
         run: |
           set -e
@@ -109,7 +112,6 @@ jobs:
           git add package.json
           git commit -m "chore(release): bump version to v$NEW_VERSION [skip ci]" || echo "Nothing to commit"
           git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-          git push origin HEAD:main
           git push origin "v$NEW_VERSION"
 
       - name: Create GitHub Release
@@ -119,3 +121,10 @@ jobs:
           name: "Release v${{ steps.bump.outputs.new_version }}"
           files: "winccoa-mcp-server-v${{ steps.bump.outputs.new_version }}.tar.gz"
           generate_release_notes: true
+
+      - name: Push version bump to main
+        # Best-effort: keeps package.json in sync on main.
+        # Skipped silently if branch protection blocks the push.
+        shell: bash
+        run: |
+          git push origin HEAD:main || echo "⚠️ Could not push version bump to main (branch protection?). Tag and release are already created."
