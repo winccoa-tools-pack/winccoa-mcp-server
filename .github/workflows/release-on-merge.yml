@@ -1,0 +1,121 @@
+name: Release on merge
+
+# Triggered when a PR is merged into main.
+# Combines version bumping, building, and GitHub Release creation in a single job
+# to avoid the GITHUB_TOKEN cross-workflow trigger limitation.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Bump version, build and release
+    if: github.event.pull_request.merged == true
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Bump patch version
+        id: bump
+        shell: bash
+        run: |
+          set -e
+          node -e "
+            const fs = require('fs');
+            const p = require('./package.json');
+            const v = p.version.split('.').map(Number);
+            v[2] += 1;
+            p.version = v.join('.');
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+            console.log(p.version);
+          "
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped to $NEW_VERSION"
+
+      - name: Point winccoa-manager to CI stub
+        # The real package is a local native add-on not available outside WinCC OA.
+        # esbuild marks it --external so the bundle keeps require('winccoa-manager');
+        # the stub only needs to satisfy npm install.
+        run: npm pkg set "dependencies.winccoa-manager=file:./.github/ci-stubs/winccoa-manager"
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Create .env placeholder
+        # .env is gitignored; the build script copies .env.example to dist/ as a template.
+        run: New-Item -ItemType File -Path .env -Force
+        shell: pwsh
+
+      - name: Build bundle
+        # Outputs: dist/index.js (esbuild-bundled) + dist/.env.example (copied by cpy)
+        run: npm run build
+
+      - name: Copy package.json to dist
+        # Required by setupWizard.ts: after extraction it runs
+        # `npm install "file:<winccoa-manager-path>"` in the mcpServer dir,
+        # which needs a package.json to exist.
+        run: cp package.json dist/
+        shell: bash
+
+      - name: Verify dist contents
+        shell: bash
+        run: |
+          echo "dist/ contents:"
+          ls dist/
+          for f in index.js .env.example package.json; do
+            if [ ! -f "dist/$f" ]; then
+              echo "ERROR: Missing required file: dist/$f"
+              exit 1
+            fi
+            echo "OK: dist/$f"
+          done
+
+      - name: Create release archive
+        # -C dist . puts contents at the archive root (no dist/ prefix in paths).
+        # setupWizard.ts extracts with: tar -xzf archive.tar.gz -C mcpServerDir
+        shell: bash
+        run: tar -czf "winccoa-mcp-server-v${{ steps.bump.outputs.new_version }}.tar.gz" -C dist .
+
+      - name: Commit version bump and push tag
+        shell: bash
+        run: |
+          set -e
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): bump version to v$NEW_VERSION [skip ci]" || echo "Nothing to commit"
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin HEAD:main
+          git push origin "v$NEW_VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.bump.outputs.new_version }}"
+          name: "Release v${{ steps.bump.outputs.new_version }}"
+          files: "winccoa-mcp-server-v${{ steps.bump.outputs.new_version }}.tar.gz"
+          generate_release_notes: true
