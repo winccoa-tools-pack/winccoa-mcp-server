@@ -1,6 +1,6 @@
 {
   "name": "winccoa-mcp-server",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "MCP server for WinCC OA – exposes datapoint operations to LLM agents",
   "main": "dist/index.js",
   "scripts": {
@@ -20,7 +20,7 @@
     "@modelcontextprotocol/sdk": "^1.12.1",
     "dotenv": "^17.3.1",
     "express": "^4.21.2",
-    "winccoa-manager": "file:../../Program Files/Siemens/WinCC_OA/3.21/javascript/winccoa-manager",
+    "winccoa-manager": "file:./.github/ci-stubs/winccoa-manager",
     "zod": "^3.24.4"
   },
   "devDependencies": {
