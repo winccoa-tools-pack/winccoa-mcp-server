@@ -5,6 +5,8 @@
  * missing required settings early.
  */
 
+import { DEFAULT_HTTP_PORT } from "../constants.js";
+
 export interface HttpConfig {
   port: number;
   host: string;
@@ -80,7 +82,7 @@ export function loadConfig(): ServerConfig {
 
   return {
     http: {
-      port: parseNumber(process.env.MCP_HTTP_PORT, 3000),
+      port: parseNumber(process.env.MCP_HTTP_PORT, DEFAULT_HTTP_PORT),
       host: process.env.MCP_HTTP_HOST ?? "127.0.0.1",
       authType,
       token: process.env.MCP_API_TOKEN,

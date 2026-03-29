@@ -19,7 +19,7 @@ vi.mock("../constants.js", () => ({
   CHARACTER_LIMIT: 25000,
   SERVER_NAME: "winccoa-mcp-server",
   SERVER_VERSION: "0.1.0",
-  DEFAULT_HTTP_PORT: 3000,
+  DEFAULT_HTTP_PORT: 47899,
 }));
 
 import { registerAllTools } from "./register-all.js";

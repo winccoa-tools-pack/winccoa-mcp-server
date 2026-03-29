@@ -43,7 +43,7 @@ A default `.env` file is included in the repository:
 MCP_TRANSPORT=stdio
 
 # Port for the HTTP transport (only used when MCP_TRANSPORT=http)
-MCP_HTTP_PORT=3000
+MCP_HTTP_PORT=47899
 
 # Maximum response size in characters to prevent overwhelming the LLM context
 MCP_CHARACTER_LIMIT=25000
@@ -52,7 +52,7 @@ MCP_CHARACTER_LIMIT=25000
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MCP_TRANSPORT` | `"stdio"` or `"http"` | `stdio` |
-| `MCP_HTTP_PORT` | Port for HTTP transport | `3000` |
+| `MCP_HTTP_PORT` | Port for HTTP transport | `47899` |
 | `MCP_CHARACTER_LIMIT` | Max response length (chars) | `25000` |
 
 ## Usage
@@ -110,7 +110,7 @@ This server is designed to be run as **customer code** inside a WinCC OA Node.js
 }
 ```
 
-For HTTP transport, point the client to `http://localhost:3000/mcp` (or your configured port).
+For HTTP transport, point the client to `http://localhost:47899/mcp` (or your configured port).
 
 ## Development
 
