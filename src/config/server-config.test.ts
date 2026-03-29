@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { loadConfig, validateConfig } from "./server-config.js";
+import { DEFAULT_HTTP_PORT } from "../constants.js";
 
 describe("loadConfig", () => {
   const saved = { ...process.env };
@@ -21,7 +22,7 @@ describe("loadConfig", () => {
 
   it("returns safe defaults when no env vars are set", () => {
     const config = loadConfig();
-    expect(config.http.port).toBe(3000);
+    expect(config.http.port).toBe(DEFAULT_HTTP_PORT);
     expect(config.http.host).toBe("127.0.0.1");
     expect(config.http.authType).toBe("bearer");
     expect(config.http.token).toBeUndefined();

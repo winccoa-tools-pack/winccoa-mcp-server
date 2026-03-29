@@ -14,7 +14,7 @@ export const SERVER_NAME = "winccoa-mcp-server";
 export const SERVER_VERSION = "0.1.0";
 
 /** Default HTTP port when using Streamable HTTP transport. */
-export const DEFAULT_HTTP_PORT = 3000;
+export const DEFAULT_HTTP_PORT = 47899;
 
 /**
  * Optional tool filter from the TOOLS environment variable.
