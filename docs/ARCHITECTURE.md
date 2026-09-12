@@ -94,24 +94,30 @@ winccoa-mcp-server/
 ├── src/
 │   ├── index.ts                  # Entry point: transport selection, HTTP server setup
 │   ├── server.ts                 # McpServer factory, tool + resource registration
-│   ├── constants.ts              # ENABLED_TOOLS filter, CHARACTER_LIMIT
+│   ├── constants.ts              # ENABLED_TOOLS filter, CHARACTER_LIMIT, DEFAULT_HTTP_PORT (47899)
 │   ├── winccoa-client.ts         # WinccoaManager singleton (getWinccoa / setWinccoaInstance)
 │   │
 │   ├── config/
 │   │   └── server-config.ts      # loadConfig() + validateConfig() — HTTP security config
 │   │
+│   ├── pmon/                     # PMON TCP client used by manager tools
+│   │
 │   ├── tools/
 │   │   ├── register-all.ts       # Registration orchestrator with TOOLS category filter
-│   │   ├── dp-*.ts               # 10 datapoint tools
-│   │   ├── archive-*.ts          # 4 archive tools
-│   │   ├── alarm-*.ts            # 4 alarm tools
-│   │   ├── common-*.ts           # 3 common metadata tools
-│   │   ├── pv-range-*.ts         # 3 PV range tools
-│   │   ├── manager-*.ts          # 8 manager/system tools
-│   │   ├── opcua-*.ts            # 5 OPC UA tools
-│   │   ├── ascii-*.ts            # 2 ASCII export/import tools
-│   │   ├── script-execute.ts     # CTRL script execution
-│   │   └── *.test.ts             # Vitest unit tests (co-located)
+│   │   ├── datapoints/           # 10 datapoint tools
+│   │   ├── dp-types/             # 7 DP type tools
+│   │   ├── archive/              # 4 archive tools
+│   │   ├── alarms/               # 4 alarm tools
+│   │   ├── common/               # 3 common metadata tools
+│   │   ├── pv-range/             # 3 PV range tools
+│   │   ├── manager/              # 12 manager/system tools (incl. kill/add/remove/project_name)
+│   │   ├── opcua/                # 5 OPC UA tools (incl. browse)
+│   │   ├── ascii/                # 2 ASCII export/import tools
+│   │   ├── script/               # CTRL script execution
+│   │   ├── address/              # peripheral address config
+│   │   ├── distrib/              # distribution config
+│   │   ├── smooth/               # smoothing config
+│   │   └── dp-fct/               # datapoint function config
 │   │
 │   ├── resources/
 │   │   ├── systemprompt.md       # LLM system instructions (instructions://system)
@@ -131,15 +137,13 @@ winccoa-mcp-server/
 ├── docs/                         # This documentation
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                # Typecheck + test + build (Node 18/20/22 matrix)
-│       └── release.yml           # npm publish on GitHub release
+│       ├── ci.yml                # Typecheck + test + build
+│       └── release-on-merge.yml  # Release packaging
 ├── .env.example                  # Documented configuration template
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
 ```
-
----
 
 ## Component Responsibilities
 

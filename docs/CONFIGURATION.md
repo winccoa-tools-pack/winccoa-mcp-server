@@ -37,7 +37,7 @@ These variables are only used when `MCP_TRANSPORT=http`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_HTTP_PORT` | `3000` | TCP port the HTTP server listens on. |
+| `MCP_HTTP_PORT` | `47899` | TCP port the HTTP server listens on. Chosen to avoid conflicts with common Node.js apps on port 3000. |
 | `MCP_HTTP_HOST` | `127.0.0.1` | IP address to bind to. `127.0.0.1` restricts to localhost only. Use `0.0.0.0` to accept connections from all interfaces (combine with IP filtering). |
 
 **Endpoints:**
@@ -163,7 +163,9 @@ Restrict which tools the server registers. Reducing the tool set decreases LLM c
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TOOLS` | *(unset = all)* | Comma-separated list of category names and/or individual tool names. When unset, all 44 tools are registered. |
+| `TOOLS` | *(unset = all)* | Comma-separated list of category names and/or individual tool short names. When unset, all **57** tools are registered. |
+
+Canonical registered names use dots (`datapoints.dp_get`). The `TOOLS` filter also accepts category keys and short hyphenated names (`dp-get`).
 
 **Available categories:**
 
@@ -175,10 +177,14 @@ Restrict which tools the server registers. Reducing the tool set decreases LLM c
 | `alarms` | `alarm-config-get`, `alarm-config-set`, `alarm-config-delete`, `alarm-log-get` |
 | `common` | `common-get`, `common-set`, `common-delete` |
 | `pv-range` | `pv-range-get`, `pv-range-set`, `pv-range-delete` |
-| `manager` | `manager-list`, `manager-status`, `manager-start`, `manager-stop`, `manager-restart`, `manager-properties-get`, `manager-properties-set`, `system-info` |
+| `manager` | `manager-list`, `manager-status`, `manager-start`, `manager-stop`, `manager-restart`, `manager-kill`, `manager-add`, `manager-remove`, `manager-properties-get`, `manager-properties-set`, `project-name`, `system-info` |
 | `opcua` | `opcua-connection-list`, `opcua-connection-add`, `opcua-connection-delete`, `opcua-address-set`, `opcua-browse` |
 | `ascii` | `ascii-export`, `ascii-import` |
 | `script` | `script-execute` |
+| `address` | `address-config-set`, `address-config-delete` |
+| `distrib` | `distrib-config-set`, `distrib-config-delete` |
+| `smooth` | `smooth-config-set`, `smooth-config-delete` |
+| `dp-fct` | `dp-fct-config-set`, `dp-fct-config-delete` |
 
 **Examples:**
 
@@ -225,7 +231,7 @@ The project instructions file can contain any markdown content describing projec
 
 ## ASCII Manager
 
-Configuration for `winccoa_ascii_export` and `winccoa_ascii_import` tools.
+Configuration for `ascii.ascii_export` and `ascii.ascii_import` tools.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -261,7 +267,7 @@ MCP_TRANSPORT=stdio
 
 ```env
 MCP_TRANSPORT=http
-MCP_HTTP_PORT=3000
+MCP_HTTP_PORT=47899
 MCP_HTTP_HOST=0.0.0.0
 MCP_AUTH_TYPE=bearer
 MCP_API_TOKEN=<32-byte hex token>
