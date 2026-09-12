@@ -1,6 +1,6 @@
 # WinCC OA MCP Server — Tool Reference
 
-Tool names use `category/tool_name` format (e.g. `datapoints/dp_get`). Parameters marked **required** must always be supplied.
+Tool names use `category.tool_name` format (e.g. `datapoints.dp_get`). Parameters marked **required** must always be supplied.
 
 ---
 
@@ -16,12 +16,16 @@ Tool names use `category/tool_name` format (e.g. `datapoints/dp_get`). Parameter
 - [OPC UA Integration](#opc-ua-integration)
 - [ASCII Export / Import](#ascii-export--import)
 - [CTRL Script Execution](#ctrl-script-execution)
+- [Peripheral Address](#peripheral-address)
+- [Distribution](#distribution)
+- [Smoothing](#smoothing)
+- [Datapoint Function](#datapoint-function)
 
 ---
 
 ## Datapoint Operations
 
-### `datapoints/dp_get`
+### `datapoints.dp_get`
 
 Read one or more datapoint element values.
 
@@ -46,7 +50,7 @@ Read one or more datapoint element values.
 
 ---
 
-### `datapoints/dp_set`
+### `datapoints.dp_set`
 
 Write one or more datapoint element values.
 
@@ -71,7 +75,7 @@ Errors for individual DPEs are isolated; other DPEs in the same call still succe
 
 ---
 
-### `datapoints/dp_create`
+### `datapoints.dp_create`
 
 Create a new datapoint.
 
@@ -90,7 +94,7 @@ Create a new datapoint.
 
 ---
 
-### `datapoints/dp_delete`
+### `datapoints.dp_delete`
 
 Delete a datapoint permanently.
 
@@ -108,7 +112,7 @@ Delete a datapoint permanently.
 
 ---
 
-### `datapoints/dp_copy`
+### `datapoints.dp_copy`
 
 Copy a datapoint to a new name (including all configuration).
 
@@ -126,7 +130,7 @@ Copy a datapoint to a new name (including all configuration).
 
 ---
 
-### `datapoints/dp_names`
+### `datapoints.dp_names`
 
 List datapoint names matching a pattern.
 
@@ -160,7 +164,7 @@ Enrichment fields (`typeNames`, `descriptions`) are omitted when the result exce
 
 ---
 
-### `datapoints/dp_exists`
+### `datapoints.dp_exists`
 
 Check whether a DP, DPE, config, or attribute identifier exists.
 
@@ -176,7 +180,7 @@ Check whether a DP, DPE, config, or attribute identifier exists.
 
 ---
 
-### `datapoints/dp_query`
+### `datapoints.dp_query`
 
 Run a WinCC OA SQL-like query across DP attributes.
 
@@ -201,7 +205,7 @@ Large result sets are truncated to stay within the response character limit.
 
 ---
 
-### `datapoints/dp_set_timed`
+### `datapoints.dp_set_timed`
 
 Write values to one or more DPEs with a specific timestamp (back-fill).
 
@@ -221,7 +225,7 @@ Uses `dpSetTimedWait` (confirmed write). Useful for inserting historical archive
 
 ---
 
-### `datapoints/dp_set_period`
+### `datapoints.dp_set_period`
 
 Write historical values for a time period in batch (up to 500 entries).
 
@@ -244,7 +248,7 @@ Each entry is written independently — a single failure does not abort the batc
 
 ## Datapoint Type Management
 
-### `dp_types/dp_types`
+### `dp_types.dp_types`
 
 List datapoint types matching a pattern.
 
@@ -262,7 +266,7 @@ List datapoint types matching a pattern.
 
 ---
 
-### `dp_types/dp_type_get`
+### `dp_types.dp_type_get`
 
 Get the structure of a datapoint type.
 
@@ -290,7 +294,7 @@ Get the structure of a datapoint type.
 
 ---
 
-### `dp_types/dp_type_create`
+### `dp_types.dp_type_create`
 
 Create a new datapoint type.
 
@@ -308,7 +312,7 @@ Create a new datapoint type.
 
 ---
 
-### `dp_types/dp_type_change`
+### `dp_types.dp_type_change`
 
 Modify an existing datapoint type.
 
@@ -326,7 +330,7 @@ Only fields that differ from the current definition need to be specified.
 
 ---
 
-### `dp_types/dp_type_delete`
+### `dp_types.dp_type_delete`
 
 Delete a datapoint type.
 
@@ -344,7 +348,7 @@ Delete a datapoint type.
 
 ---
 
-### `dp_types/dp_type_name`
+### `dp_types.dp_type_name`
 
 Get the DP type name for a given datapoint.
 
@@ -360,7 +364,7 @@ Get the DP type name for a given datapoint.
 
 ---
 
-### `dp_types/name_check`
+### `dp_types.name_check`
 
 Validate a name against WinCC OA naming rules before creating a DP or type.
 
@@ -379,7 +383,7 @@ Validate a name against WinCC OA naming rules before creating a DP or type.
 
 ## Archive (Historical Data)
 
-### `archive/archive_get`
+### `archive.archive_get`
 
 Read historical values for one or more DPEs from the WinCC OA archive.
 
@@ -406,7 +410,7 @@ Only DPEs with an active archive configuration will have data.
 
 ---
 
-### `archive/archive_config_get`
+### `archive.archive_config_get`
 
 Read the archive (smoothing) configuration for one or more DPEs.
 
@@ -425,7 +429,7 @@ Read the archive (smoothing) configuration for one or more DPEs.
 
 ---
 
-### `archive/archive_config_set`
+### `archive.archive_config_set`
 
 Enable or update archive configuration for a DPE.
 
@@ -445,7 +449,7 @@ Enable or update archive configuration for a DPE.
 
 ---
 
-### `archive/archive_config_delete`
+### `archive.archive_config_delete`
 
 Disable archiving for one or more DPEs.
 
@@ -468,7 +472,7 @@ Disable archiving for one or more DPEs.
 
 ## Alarm Configuration
 
-### `alarms/alarm_config_get`
+### `alarms.alarm_config_get`
 
 Read the alarm configuration for a DPE.
 
@@ -511,7 +515,7 @@ Read the alarm configuration for a DPE.
 
 ---
 
-### `alarms/alarm_config_set`
+### `alarms.alarm_config_set`
 
 Configure alarm monitoring for a DPE.
 
@@ -533,7 +537,7 @@ The alarm type must match the element's actual data type (binary → Bool; nonBi
 
 ---
 
-### `alarms/alarm_config_delete`
+### `alarms.alarm_config_delete`
 
 Remove alarm configuration from one or more DPEs.
 
@@ -554,7 +558,7 @@ Remove alarm configuration from one or more DPEs.
 
 ---
 
-### `alarms/alarm_log_get`
+### `alarms.alarm_log_get`
 
 Read the alarm / event log for one or more DPEs.
 
@@ -580,7 +584,7 @@ Read the alarm / event log for one or more DPEs.
 
 ## Common DPE Metadata
 
-### `common/common_get`
+### `common.common_get`
 
 Read alias, description, format, and/or unit for a DPE.
 
@@ -605,7 +609,7 @@ Description, format, and unit may be either a plain string or a language-keyed o
 
 ---
 
-### `common/common_set`
+### `common.common_set`
 
 Set alias, description, format, and/or unit for a DPE.
 
@@ -631,7 +635,7 @@ At least one field must be provided. Fields are written in parallel; per-field e
 
 ---
 
-### `common/common_delete`
+### `common.common_delete`
 
 Clear alias, description, format, and/or unit fields on a DPE.
 
@@ -642,13 +646,13 @@ Clear alias, description, format, and/or unit fields on a DPE.
 
 Clearing sets the field to an empty string. Per-field error tracking applies.
 
-**Returns** — same shape as `common/common_set`.
+**Returns** — same shape as `common.common_set`.
 
 ---
 
 ## PV Range Configuration
 
-### `pv_range/pv_range_get`
+### `pv_range.pv_range_get`
 
 Read the process value range (engineering limits) for a numeric DPE.
 
@@ -677,7 +681,7 @@ Read the process value range (engineering limits) for a numeric DPE.
 
 ---
 
-### `pv_range/pv_range_set`
+### `pv_range.pv_range_set`
 
 Set the process value range for a numeric DPE.
 
@@ -697,7 +701,7 @@ Set the process value range for a numeric DPE.
 
 ---
 
-### `pv_range/pv_range_delete`
+### `pv_range.pv_range_delete`
 
 Remove PV range configuration from one or more DPEs.
 
@@ -731,7 +735,7 @@ RunState values used by manager tools:
 
 ---
 
-### `manager/manager_list`
+### `manager.manager_list`
 
 List all WinCC OA managers registered in the PMON DP fabric.
 
@@ -750,7 +754,7 @@ List all WinCC OA managers registered in the PMON DP fabric.
 
 ---
 
-### `manager/manager_status`
+### `manager.manager_status`
 
 Get detailed status of a specific manager.
 
@@ -781,7 +785,7 @@ Get detailed status of a specific manager.
 
 ---
 
-### `manager/manager_start`
+### `manager.manager_start`
 
 Send a start command to a stopped manager via the PMON DP fabric.
 
@@ -789,11 +793,11 @@ Send a start command to a stopped manager via the PMON DP fabric.
 |-----------|------|:--------:|-------------|
 | `managerNum` | `number` | ✓ | Manager number to start. |
 
-**Returns** — plain text confirmation. Use `manager/manager_status` to verify the resulting run state (PMON may take seconds to bring the manager online).
+**Returns** — plain text confirmation. Use `manager.manager_status` to verify the resulting run state (PMON may take seconds to bring the manager online).
 
 ---
 
-### `manager/manager_stop`
+### `manager.manager_stop`
 
 Send a stop command to a running manager via the PMON DP fabric.
 
@@ -807,7 +811,7 @@ Send a stop command to a running manager via the PMON DP fabric.
 
 ---
 
-### `manager/manager_restart`
+### `manager.manager_restart`
 
 Stop then start a manager (combines `manager_stop` + configurable wait + `manager_start`).
 
@@ -822,7 +826,65 @@ Stop then start a manager (combines `manager_stop` + configurable wait + `manage
 
 ---
 
-### `manager/manager_properties_get`
+### `manager.manager_kill`
+
+Force-kill a manager process via PMON TCP (SIGKILL).
+
+> **Destructive** and **self-kill protected** — refuses to kill the MCP server's own manager. Prefer `manager.manager_stop` for graceful shutdown.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `managerIndex` | `number` | ✓ | PMON index to kill (use `manager.manager_list`). |
+
+**Returns** — plain text confirmation.
+
+---
+
+### `manager.manager_add`
+
+Insert a new manager into the PMON configuration.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `managerIndex` | `number` | ✓ | Insert position (1–100). |
+| `managerName` | `string` | ✓ | Executable name, e.g. `WCCOActrl` (without `.exe`). |
+| `startMode` | `string` | | `manual`, `once`, or `always`. Default: `always`. |
+| `secKill` | `number` | | Seconds before SIGKILL on stop. Default: `30`. |
+| `restartCount` | `number` | | Automatic restart attempts. Default: `3`. |
+| `resetMin` | `number` | | Minutes before restart counter resets. Default: `5`. |
+| `options` | `string` | | Command-line options. Default: empty. |
+
+**Returns** — plain text confirmation.
+
+---
+
+### `manager.manager_remove`
+
+Remove a manager from the PMON configuration.
+
+> **Destructive** — removes the manager entry from PMON.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `managerIndex` | `number` | ✓ | PMON index to remove. |
+
+**Returns** — plain text confirmation.
+
+---
+
+### `manager.project_name`
+
+Get the WinCC OA project name from PMON. No parameters.
+
+**Returns**
+
+```json
+{ "projectName": "MyProject" }
+```
+
+---
+
+### `manager.manager_properties_get`
 
 Read operational properties for a manager (start mode, kill time, restart limits).
 
@@ -845,7 +907,7 @@ Read operational properties for a manager (start mode, kill time, restart limits
 
 ---
 
-### `manager/manager_properties_set`
+### `manager.manager_properties_set`
 
 Write operational properties for a manager. At least one property must be specified.
 
@@ -861,7 +923,7 @@ Write operational properties for a manager. At least one property must be specif
 
 ---
 
-### `manager/system_info`
+### `manager.system_info`
 
 Get WinCC OA system version, paths, languages, and system identity. No parameters.
 
@@ -881,7 +943,7 @@ Get WinCC OA system version, paths, languages, and system identity. No parameter
 
 ## OPC UA Integration
 
-### `opcua/opcua_connection_list`
+### `opcua.opcua_connection_list`
 
 List all OPC UA connections defined in the project.
 
@@ -899,7 +961,7 @@ Returns an empty array when no connections are configured.
 
 ---
 
-### `opcua/opcua_connection_add`
+### `opcua.opcua_connection_add`
 
 Create a new OPC UA connection DP.
 
@@ -926,7 +988,7 @@ Certificate and user/password authentication must be configured manually in WinC
 
 ---
 
-### `opcua/opcua_connection_delete`
+### `opcua.opcua_connection_delete`
 
 Delete an OPC UA connection DP and its driver configuration.
 
@@ -940,7 +1002,7 @@ Delete an OPC UA connection DP and its driver configuration.
 
 ---
 
-### `opcua/opcua_address_set`
+### `opcua.opcua_address_set`
 
 Map a DPE to an OPC UA node ID on a specific connection.
 
@@ -967,7 +1029,7 @@ Map a DPE to an OPC UA node ID on a specific connection.
 
 ---
 
-### `opcua/opcua_browse`
+### `opcua.opcua_browse`
 
 Browse the OPC UA address space of a connected server.
 
@@ -996,7 +1058,7 @@ Requires WinCC OA 3.18+ with the CTRL OPC UA extension. Uses a CTRL script with 
 
 ## ASCII Export / Import
 
-### `ascii/ascii_export`
+### `ascii.ascii_export`
 
 Export datapoints to a DPL file using the WCCOAascii tool.
 
@@ -1032,7 +1094,7 @@ Requires the `WCCOAascii` binary to be on `PATH` or configured via `WINCCOA_ASCI
 
 ---
 
-### `ascii/ascii_import`
+### `ascii.ascii_import`
 
 Import datapoints from a DPL file using the WCCOAascii tool.
 
@@ -1062,7 +1124,7 @@ A non-zero `exitCode` indicates failure or warnings.
 
 ## CTRL Script Execution
 
-### `script/script_execute`
+### `script.script_execute`
 
 Execute a CTRL script inside the WinCC OA runtime and return the result.
 
@@ -1094,3 +1156,75 @@ Exactly one of `code` or `filePath` must be supplied.
 ```
 
 `logLines` contains log entries appended during script execution. `logFile` is `null` when `captureLog` is `false` or no log file is found.
+
+---
+
+## Peripheral Address
+
+### `address.address_config_set`
+
+Enable or update peripheral address configuration on a DPE.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `dpeName` | `string` | ✓ | DPE to configure. |
+| `reference` | `string` | ✓ | Peripheral address reference string. |
+| `direction` | `number` | ✓ | Address mode constant (`DPATTR_ADDR_MODE_*`). |
+| `drvIdent` | `string` | ✓ | Driver identifier, e.g. `S7`, `OPC UA`, `Modbus`. |
+| `datatype` | `number` | ✓ | Driver-specific transformation type. |
+| `subindex` | `number` | | Subindex within the peripheral address. |
+| `offset` | `number` | | Byte offset. |
+| `connection` | `string` | | Connection name for the driver. |
+| `pollGroup` | `string` | | Poll group for cyclic polling. |
+
+**Returns**
+
+```json
+{ "success": true, "dpeName": "Tank1.level" }
+```
+
+---
+
+### `address.address_config_delete`
+
+Remove peripheral address configuration from one or more DPEs.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `dpeNames` | `string[]` | ✓ | DPE names to clear address config on. |
+
+---
+
+## Distribution
+
+### `distrib.distrib_config_set`
+
+Set distribution configuration on a DPE. See `src/tools/distrib/distrib-config-set.ts` for full parameter details.
+
+### `distrib.distrib_config_delete`
+
+Remove distribution configuration from DPEs. See `src/tools/distrib/distrib-config-delete.ts`.
+
+---
+
+## Smoothing
+
+### `smooth.smooth_config_set`
+
+Set smoothing configuration on a DPE. See `src/tools/smooth/smooth-config-set.ts`.
+
+### `smooth.smooth_config_delete`
+
+Remove smoothing configuration from DPEs. See `src/tools/smooth/smooth-config-delete.ts`.
+
+---
+
+## Datapoint Function
+
+### `dp_fct.dp_fct_config_set`
+
+Set datapoint function configuration on a DPE. See `src/tools/dp-fct/dp-fct-config-set.ts`.
+
+### `dp_fct.dp_fct_config_delete`
+
+Remove datapoint function configuration from DPEs. See `src/tools/dp-fct/dp-fct-config-delete.ts`.

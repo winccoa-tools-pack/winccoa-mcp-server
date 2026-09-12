@@ -36,7 +36,7 @@ See `docs/ARCHITECTURE.md` for diagrams, detailed component descriptions, and bu
 
 1. Create `src/tools/<category>/your-tool.ts` using the standard pattern (see below).
 2. Add your registration function import and call in `src/tools/register-all.ts`.
-3. Add the tool name (`"<category>/your_tool"`) to the correct category in the `CATEGORIES` map in `register-all.ts`.
+3. Add the tool name (`"<category>.your_tool"`) to the correct category in the `CATEGORIES` map in `register-all.ts`.
 4. Create `src/tools/<category>/your-tool.test.ts` (see Testing section below).
 5. Run `npm run typecheck && npm test` — both must pass.
 6. Add a row to the tool table in `README.md` and a full section in `docs/TOOLS.md`.
@@ -52,7 +52,7 @@ import { handleWinccoaError } from "../../utils/error-handler.js";
 
 export function registerMyTool(server: McpServer): void {
   server.registerTool(
-    "mycategory/my_tool",
+    "mycategory.my_tool",
     {
       title: "Short Human Title",
       description: "LLM-facing description. Be specific about what this does, what it returns, and any caveats.",
@@ -95,7 +95,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { setWinccoaInstance } from "../../winccoa-client.js";
 import { registerMyTool } from "./my-tool.js";
 
-describe("mycategory/my_tool", () => {
+describe("mycategory.my_tool", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockWinccoa: any;
   let invoke: (args: unknown) => Promise<unknown>;
